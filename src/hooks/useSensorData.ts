@@ -1,6 +1,24 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 
-// ... Keep your interfaces (SensorData, SensorSnapshot, HistoryPoint) exactly as they are
+export interface SensorData {
+  id: string;
+  co2: number;
+  type: "REAL" | "DUMMY";
+  lastUpdate: Date;
+  zone: string;
+}
+
+export interface SensorSnapshot {
+  timestamp: Date;
+  sensors: SensorData[];
+}
+
+export interface HistoryPoint {
+  time: string;
+  avg: number;
+  s1: number;
+  s2: number;
+}
 
 const ZONES = ["Downtown", "Industrial", "Residential North", "Commercial", "University", "Parklands", "Harbor"];
 
@@ -8,27 +26,26 @@ export function useSensorData() {
   const [data, setData] = useState<SensorSnapshot | null>(null);
   const [history, setHistory] = useState<HistoryPoint[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);
-  // We keep one ref for the dummy second sensor, but we'll fetch S1 from your server
   const prevS2 = useRef<number>(395);
 
   const fetchData = useCallback(async () => {
-    let esp32Value = 400; // Default fallback value
+    let esp32Value = 400; // Default/Fallback
 
     try {
-      // 1. FETCH REAL DATA FROM YOUR NODE SERVER
+      // Fetch from your local Node.js backend
       const response = await fetch("http://localhost:3001/api/sensor");
-      const backendData = await response.json();
-      if (backendData && backendData.value) {
+      if (response.ok) {
+        const backendData = await response.json();
         esp32Value = Number(backendData.value);
       }
     } catch (error) {
-      console.error("Backend not reached, using default value", error);
+      console.warn("Backend unreachable, showing fallback data.");
     }
 
-    const r2 = Math.round(Math.max(350, Math.min(520, prevS2.current + (Math.random() - 0.5) * 10)));
+    // Generate a moving simulated value for Sensor 2
+    const r2 = Math.round(Math.max(350, Math.min(520, prevS2.current + (Math.random() - 0.5) * 15)));
     prevS2.current = r2;
 
-    // 2. INJECT ESP32 VALUE INTO SENSOR S1
     const sensors: SensorData[] = [
       { id: "S1 (ESP32)", co2: esp32Value, type: "REAL", lastUpdate: new Date(), zone: ZONES[0] },
       { id: "S2 (SIM)", co2: r2, type: "REAL", lastUpdate: new Date(), zone: ZONES[1] },
@@ -44,7 +61,6 @@ export function useSensorData() {
     const snapshot: SensorSnapshot = { timestamp: new Date(), sensors };
     setData(snapshot);
 
-    // 3. UPDATE CHART HISTORY
     const avg = Math.round(sensors.reduce((s, x) => s + x.co2, 0) / sensors.length);
     const now = new Date();
     const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -60,7 +76,7 @@ export function useSensorData() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 2000); // Poll every 2 seconds for faster updates
+    const interval = setInterval(fetchData, 2000); // Fast refresh (2s)
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -71,4 +87,16 @@ export function useSensorData() {
   return { data, history, alerts, avgCO2, warningCount, criticalCount };
 }
 
-// ... Keep your getStatusColor and getStatusClass functions at the bottom
+// CRITICAL FIX: These must be exported so Dashboard.tsx can find them!
+export function getStatusColor(co2: number): "green" | "yellow" | "red" {
+  if (co2 < 420) return "green";
+  if (co2 <= 480) return "yellow";
+  return "red";
+}
+
+export function getStatusClass(co2: number): string {
+  const color = getStatusColor(co2);
+  if (color === "green") return "status-green";
+  if (color === "yellow") return "status-yellow";
+  return "status-red";
+}

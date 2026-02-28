@@ -3,36 +3,40 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const fs = require('fs');
 const app = express();
-const PORT = 3001; // Your backend port
+const PORT = 3001; 
 
 app.use(cors());
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// Path to store the data
+const DATA_FILE = 'data.json';
+
 // 1. ESP32 Sends data here
 app.post('/api/sensor', (req, res) => {
     const sensorData = {
-        value: req.body.value, // This matches what ESP32 sends
-        timestamp: new Date().toLocaleString()
+        value: req.body.value || 0,
+        timestamp: new Date().toISOString()
     };
     
     // Save to data.json
-    fs.writeFileSync('data.json', JSON.stringify(sensorData));
+    fs.writeFileSync(DATA_FILE, JSON.stringify(sensorData));
     
-    console.log("ESP32 Data Received:", sensorData);
-    res.status(200).send("Success");
+    console.log("ESP32 Data Received and Saved:", sensorData);
+    res.status(200).send({ message: "Data stored successfully" });
 });
 
 // 2. Your Website gets data from here
 app.get('/api/sensor', (req, res) => {
-    if (fs.existsSync('data.json')) {
-        const data = fs.readFileSync('data.json');
+    if (fs.existsSync(DATA_FILE)) {
+        const data = fs.readFileSync(DATA_FILE);
         res.json(JSON.parse(data));
     } else {
-        res.json({ value: 0 });
+        res.json({ value: 400, message: "No real data yet" });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Backend is running on http://localhost:${PORT}`);
+    console.log(`✅ Backend is running on http://localhost:${PORT}`);
+    console.log(`📡 ESP32 should target: http://192.168.1.6:${PORT}/api/sensor`);
 });
