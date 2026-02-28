@@ -23,13 +23,7 @@ app.post('/api/sensor', (req, res) => {
     console.log("ESP32 Data Received:", sensorData);
     res.status(200).send({ message: "Success" });
 });
-    
-    // Save to data.json
-    fs.writeFileSync(DATA_FILE, JSON.stringify(sensorData));
-    
-    console.log("ESP32 Data Received and Saved:", sensorData);
-    res.status(200).send({ message: "Data stored successfully" });
-});
+// End POST /api/sensor
 
 // 2. Your Website gets data from here
 app.get('/api/sensor', (req, res) => {
