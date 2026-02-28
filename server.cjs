@@ -15,9 +15,14 @@ const DATA_FILE = 'data.json';
 // 1. ESP32 Sends data here
 app.post('/api/sensor', (req, res) => {
     const sensorData = {
-        value: req.body.value || 0,
+        value: req.body.value || 400,   // Sensor 1
+        value2: req.body.value2 || 400, // Sensor 2
         timestamp: new Date().toISOString()
     };
+    fs.writeFileSync(DATA_FILE, JSON.stringify(sensorData));
+    console.log("ESP32 Data Received:", sensorData);
+    res.status(200).send({ message: "Success" });
+});
     
     // Save to data.json
     fs.writeFileSync(DATA_FILE, JSON.stringify(sensorData));
