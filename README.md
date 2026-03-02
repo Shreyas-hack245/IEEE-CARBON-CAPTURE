@@ -35,33 +35,66 @@ This code handles WiFi connection and transmits sensor data every 5 seconds.
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-const char* ssid = "YOUR_WIFI_NAME";
+// --- WIFI CONFIGURATION ---
+const char* ssid = "YOUR_WIFI_NAME"; 
 const char* password = "YOUR_WIFI_PASSWORD";
-const char* serverUrl = "http://YOUR_SERVER_IP:3000/data";
+
+// --- BACKEND CONFIGURATION ---
+// Replace 192.168.1.6 with your Laptop's actual IPv4 address
+const char* serverUrl = "http://192.168.1.6:3001/api/sensor";
+
+const int SENSOR1_PIN = 34; 
+const int SENSOR2_PIN = 35;
 
 void setup() {
   Serial.begin(115200);
   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
-  Serial.println("\nWiFi Connected");
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\n Connected! IP: " + WiFi.localIP().toString());
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    StaticJsonDocument<200> doc;
-    doc["sensor1"] = analogRead(34);
-    doc["sensor2"] = analogRead(35);
+    // 1. Read & Average for stability
+    long raw1 = 0, raw2 = 0;
+    for(int i=0; i<10; i++) { 
+      raw1 += analogRead(SENSOR1_PIN);
+      raw2 += analogRead(SENSOR2_PIN);
+      delay(50);
+    }
+    raw1 /= 10; raw2 /= 10;
 
-    String jsonStr;
-    serializeJson(doc, jsonStr);
+    // 2. Convert to approximate PPM
+    float ppm1 = map(raw1, 0, 4095, 400, 2000); 
+    float ppm2 = map(raw2, 0, 4095, 400, 2000);
 
+    // 3. Prepare JSON (Matching Backend Keys)
+    JsonDocument doc; 
+    doc["value"] = ppm1;   // Must be "value"
+    doc["value2"] = ppm2;  // Must be "value2"
+
+    String jsonPayload;
+    serializeJson(doc, jsonPayload);
+
+    // 4. Send POST Request
     HTTPClient http;
     http.begin(serverUrl);
     http.addHeader("Content-Type", "application/json");
-    int httpCode = http.POST(jsonStr);
+
+    int httpResponseCode = http.POST(jsonPayload);
+
+    if (httpResponseCode > 0) {
+      Serial.printf("Data Sent: [%.1f, %.1f] | Response: %d\n", ppm1, ppm2, httpResponseCode);
+    } else {
+      Serial.println("Error: " + http.errorToString(httpResponseCode));
+    }
     http.end();
   }
-  delay(5000);
+  delay(2000); 
 }
 ```
 ## 🚀 Running the Application
