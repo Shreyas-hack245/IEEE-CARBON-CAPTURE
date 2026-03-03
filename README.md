@@ -1,73 +1,136 @@
-# Welcome to your Lovable project
+# 🌍 Carbon Capture Monitoring System
 
-## Project info
+A complete IoT solution using an **ESP32** and **MQ135** sensors to track air quality and visualize data on a live web dashboard.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+---
 
-## How can I edit this code?
+## 🏗 Project Architecture
+* **Hardware:** ESP32 reads analog data from dual MQ135 sensors.
+* **Connectivity:** Data is transmitted via WiFi as JSON payloads.
+* **Backend:** Node.js server receives data and serves the frontend.
+* **Frontend:** HTML/JavaScript dashboard for real-time visualization.
 
-There are several ways of editing your application.
+---
 
-**Use Lovable**
+## 🔌 Hardware Setup
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### **Wiring Diagram**
+| MQ135 Pin | ESP32 Pin | Description |
+| :--- | :--- | :--- |
+| **VCC** | **VIN (5V)** | Powers the internal sensor heater |
+| **GND** | **GND** | Common ground |
+| **AOUT (S1)** | **GPIO 34** | Analog data for Sensor 1 |
+| **AOUT (S2)** | **GPIO 35** | Analog data for Sensor 2 |
 
-Changes made via Lovable will be committed automatically to this repo.
 
-**Use your preferred IDE**
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+---
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## 💻 ESP32 Firmware
 
-Follow these steps:
+This code handles WiFi connection and transmits sensor data every 5 seconds.
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+```cpp
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+// --- WIFI CONFIGURATION ---
+const char* ssid = "YOUR_WIFI_NAME"; 
+const char* password = "YOUR_WIFI_PASSWORD";
 
-# Step 3: Install the necessary dependencies.
-npm i
+// --- BACKEND CONFIGURATION ---
+// Replace 192.168.1.6 with your Laptop's actual IPv4 address
+const char* serverUrl = "http://192.168.1.6:3001/api/sensor";
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+const int SENSOR1_PIN = 34; 
+const int SENSOR2_PIN = 35;
+
+void setup() {
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to WiFi");
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("\n Connected! IP: " + WiFi.localIP().toString());
+}
+
+void loop() {
+  if (WiFi.status() == WL_CONNECTED) {
+    // 1. Read & Average for stability
+    long raw1 = 0, raw2 = 0;
+    for(int i=0; i<10; i++) { 
+      raw1 += analogRead(SENSOR1_PIN);
+      raw2 += analogRead(SENSOR2_PIN);
+      delay(50);
+    }
+    raw1 /= 10; raw2 /= 10;
+
+    // 2. Convert to approximate PPM
+    float ppm1 = map(raw1, 0, 4095, 400, 2000); 
+    float ppm2 = map(raw2, 0, 4095, 400, 2000);
+
+    // 3. Prepare JSON (Matching Backend Keys)
+    JsonDocument doc; 
+    doc["value"] = ppm1;   // Must be "value"
+    doc["value2"] = ppm2;  // Must be "value2"
+
+    String jsonPayload;
+    serializeJson(doc, jsonPayload);
+
+    // 4. Send POST Request
+    HTTPClient http;
+    http.begin(serverUrl);
+    http.addHeader("Content-Type", "application/json");
+
+    int httpResponseCode = http.POST(jsonPayload);
+
+    if (httpResponseCode > 0) {
+      Serial.printf("Data Sent: [%.1f, %.1f] | Response: %d\n", ppm1, ppm2, httpResponseCode);
+    } else {
+      Serial.println("Error: " + http.errorToString(httpResponseCode));
+    }
+    http.end();
+  }
+  delay(2000); 
+}
 ```
+## 🚀 Running the Application
 
-**Edit a file directly in GitHub**
+To run the system, you must start the backend server first so it is ready to receive data from the ESP32.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### **1. Launch the Backend (Node.js)**
+1. Open your terminal or command prompt.
+2. Navigate to the server directory:
+   ```bash
+   cd path/to/your/project/server
+   ```
+3.Install the necessary packages:
+```bash
+ npm install express cors body-parser
+```
+4.Start the server:
+```bash
+node server.cjs
+```
+The terminal should display: Server running on port 3000.
 
-**Use GitHub Codespaces**
+2. Launch the Frontend (Dashboard)
+Keep the backend terminal running.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Locate the index.html file in your project folder.
 
-## What technologies are used for this project?
+Open it directly in your web browser (Chrome, Edge, or Firefox).
 
-This project is built with:
+You should see the dashboard interface waiting for data.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+3. Start the ESP32
+Power the ESP32 via USB or an external power supply.
 
-## How can I deploy this project?
+Ensure the ESP32 is within range of your WiFi.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Once connected, the ESP32 will start sending POST requests, and the dashboard will update automatically.
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+   
