@@ -15,8 +15,15 @@ const DATA_FILE = 'data.json';
 // 1. ESP32 Sends data here
 app.post('/api/sensor', (req, res) => {
     const sensorData = {
-        value: req.body.value || 400,   // Sensor 1
-        value2: req.body.value2 || 400, // Sensor 2
+        // use Number() and fall back only if the parsed result is NaN
+        value: (() => {
+            const v = Number(req.body.value);
+            return Number.isNaN(v) ? 400 : v;
+        })(),   // Sensor 1
+        value2: (() => {
+            const v = Number(req.body.value2);
+            return Number.isNaN(v) ? 400 : v;
+        })(), // Sensor 2
         timestamp: new Date().toISOString()
     };
     fs.writeFileSync(DATA_FILE, JSON.stringify(sensorData));
