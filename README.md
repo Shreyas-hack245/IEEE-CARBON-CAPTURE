@@ -97,6 +97,7 @@ void loop() {
   delay(2000); 
 }
 ```
+the sensors default value is set to 400ppm
 ## 🚀 Running the Application
 
 To run the system, you must start the backend server first so it is ready to receive data from the ESP32.
