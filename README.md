@@ -1,29 +1,38 @@
 # 🌍 Carbon Capture Monitoring System
 
-A complete IoT solution using an **ESP32** and **MQ135** sensors to track air quality and visualize data on a live web dashboard.
+A High-fidelity IoT solution using an ESP32, MQ135, and DHT11 sensors to track air quality and environmental data, visualized through a tactical real-time "Hotspot Matrix" dashboard.
 
 ---
 
 ## 🏗 Project Architecture
-* **Hardware:** ESP32 reads analog data from dual MQ135 sensors.
-* **Connectivity:** Data is transmitted via WiFi as JSON payloads.
-* **Backend:** Node.js server receives data and serves the frontend.
-* **Frontend:** HTML/JavaScript dashboard for real-time visualization.
+Hardware: ESP32 micro-controller reading analog data from Dual MQ135 gas sensors (CO2/Air Quality) and a DHT11 (Temperature/Humidity) sensor.
 
+* Connectivity: Data is transmitted via WiFi as JSON payloads using HTTP POST requests.
+
+* Backend: Node.js server utilizing Express to receive data and Socket.io to stream live updates to the dashboard.
+
+* Frontend: A tactical React/Tailwind dashboard featuring:
+
+* Hotspot Matrix: Real-time atmospheric dispersion model using HTML5 Canvas.
+
+* Multi-Node Monitoring: Independent tracking for multiple industrial and residential sectors.
 ---
 
 ## 🔌 Hardware Setup
 
 ### **Wiring Diagram**
-| MQ135 Pin | ESP32 Pin | Description |
-| :--- | :--- | :--- |
-| **VCC** | **VIN (5V)** | Powers the internal sensor heater |
-| **GND** | **GND** | Common ground |
-| **AOUT (S1)** | **GPIO 34** | Analog data for Sensor 1 |
-| **AOUT (S2)** | **GPIO 35** | Analog data for Sensor 2 |
 
-
-
+| Component | Pin | ESP32 Pin | Description |
+| :--- | :--- | :--- | :--- |
+| **MQ135 (S1)** | **VCC** | **VIN (5V)** | Powers the internal sensor heater |
+| **MQ135 (S1)** | **GND** | **GND** | Common ground |
+| **MQ135 (S1)** | **AOUT** | **GPIO 34** | Analog data for Sensor 1 |
+| **MQ135 (S2)** | **VCC** | **VIN (5V)** | Powers the internal sensor heater |
+| **MQ135 (S2)** | **GND** | **GND** | Common ground |
+| **MQ135 (S2)** | **AOUT** | **GPIO 35** | Analog data for Sensor 2 |
+| **DHT11** | **VCC** | **3.3V / VIN** | Power supply for humidity/temp sensor |
+| **DHT11** | **DATA** | **GPIO 13** | Digital environmental data signal |
+| **DHT11** | **GND** | **GND** | Common ground |
 ---
 
 ## 💻 ESP32 Firmware
@@ -34,48 +43,70 @@ This code handles WiFi connection and transmits sensor data every 5 seconds.
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
+#include "DHT.h"
 
 // --- WIFI CONFIGURATION ---
 const char* ssid = "YOUR_WIFI_NAME"; 
 const char* password = "YOUR_WIFI_PASSWORD";
 
 // --- BACKEND CONFIGURATION ---
-// Replace 192.168.1.6 with your Laptop's actual IPv4 address
-const char* serverUrl = "http://192.168.1.6:3001/api/sensor";
+// IMPORTANT: Put your Laptop's IPv4 address here (e.g., 192.168.1.15)
+const char* serverUrl =  "http://192.168.x.xx:3001/api/sensor";
 
-const int SENSOR1_PIN = 34; 
-const int SENSOR2_PIN = 35;
+// --- SENSOR PINS ---
+const int MQ135_PIN = 34; // MQ135 connected to G34
+#define DHTPIN 13         // DHT11 "Out" connected to G13
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
 
 void setup() {
   Serial.begin(115200);
+  dht.begin(); // Initialize the DHT11
+  
   WiFi.begin(ssid, password);
   Serial.print("Connecting to WiFi");
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("\n Connected! IP: " + WiFi.localIP().toString());
+  Serial.println("\n✅ Connected! IP: " + WiFi.localIP().toString());
+  
+  analogReadResolution(12); // Ensure 12-bit for ESP32 (0-4095)
 }
 
 void loop() {
   if (WiFi.status() == WL_CONNECTED) {
-    // 1. Read & Average for stability
-    long raw1 = 0, raw2 = 0;
+    
+    // 1. Read DHT11 (Digital Data)
+    float humidity = dht.readHumidity();
+    float temperature = dht.readTemperature();
+
+    // 2. Read MQ135 (Analog Data) - Averaging 10 times for stability
+    long rawMQ = 0;
     for(int i=0; i<10; i++) { 
-      raw1 += analogRead(SENSOR1_PIN);
-      raw2 += analogRead(SENSOR2_PIN);
-      delay(50);
+      rawMQ += analogRead(MQ135_PIN);
+      delay(10);
     }
-    raw1 /= 10; raw2 /= 10;
+    rawMQ /= 10;
 
-    // 2. Convert to approximate PPM
-    float ppm1 = map(raw1, 0, 4095, 400, 2000); 
-    float ppm2 = map(raw2, 0, 4095, 400, 2000);
+    // Convert to approximate PPM
+    float co2Ppm = map(rawMQ, 0, 4095, 400, 2000);
 
-    // 3. Prepare JSON (Matching Backend Keys)
-    JsonDocument doc; 
-    doc["value"] = ppm1;   // Must be "value"
-    doc["value2"] = ppm2;  // Must be "value2"
+    // 3. Prepare JSON (Matching your Dashboard's keys)
+    StaticJsonDocument<256> doc; 
+    
+    if (isnan(humidity) || isnan(temperature)) {
+      Serial.println("❌ DHT11 Read Error! Check wiring on G13.");
+      doc["temp"] = 25.0; // Fallback so dashboard doesn't break
+      doc["hum"] = 50.0;
+    } else {
+      doc["temp"] = temperature; 
+      doc["hum"] = humidity;
+    }
+
+    doc["value"] = co2Ppm;      // Primary CO2 Gauge
+    doc["value2"] = co2Ppm + 3; // Simulated secondary line for the "Wave" effect
 
     String jsonPayload;
     serializeJson(doc, jsonPayload);
@@ -88,13 +119,14 @@ void loop() {
     int httpResponseCode = http.POST(jsonPayload);
 
     if (httpResponseCode > 0) {
-      Serial.printf("Data Sent: [%.1f, %.1f] | Response: %d\n", ppm1, ppm2, httpResponseCode);
+      Serial.printf("Sent -> PPM: %.1f | Temp: %.1f | Hum: %.1f | Code: %d\n", 
+                    co2Ppm, temperature, humidity, httpResponseCode);
     } else {
       Serial.println("Error: " + http.errorToString(httpResponseCode));
     }
     http.end();
   }
-  delay(2000); 
+  delay(2000); // Send data every 2 seconds
 }
 ```
 the sensors default value is set to 400ppm
