@@ -7,9 +7,9 @@ const container = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } }
 const item = { hidden: { opacity: 0, y: 15 }, show: { opacity: 1, y: 0 } };
 
 const EMISSION_SOURCES = [
-  { name: "Traffic", value: 42, icon: Car, color: "hsl(0, 85%, 55%)" },
+  { name: "Traffic", value: 42, icon: Car, color: "#00ff88" },
   { name: "Industrial", value: 31, icon: Factory, color: "hsl(45, 100%, 55%)" },
-  { name: "Residential", value: 27, icon: Home, color: "hsl(155, 100%, 45%)" },
+  { name: "Residential", value: 27, icon: Home, color: "hsl(0, 85%, 60%)" },
 ];
 
 export default function EmissionAnalysis() {
@@ -23,89 +23,125 @@ export default function EmissionAnalysis() {
   ];
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="space-y-6">
-      <div>
-        <h1 className="font-display text-2xl lg:text-3xl font-bold neon-text flex items-center gap-3">
-          <BarChart3 className="w-7 h-7" /> Emission Analysis
+    <motion.div variants={container} initial="hidden" animate="show" className="space-y-8">
+      {/* Header Section */}
+      <div className="space-y-1">
+        <h1 className="font-sans text-3xl lg:text-4xl font-black tracking-tighter flex items-center gap-3 uppercase text-[#00ff88] drop-shadow-[0_0_10px_rgba(0,255,136,0.3)]">
+          <BarChart3 className="w-8 h-8" /> Emission Analysis
         </h1>
-        <p className="text-sm text-muted-foreground mt-1">Source breakdown & AI-powered forecasting</p>
+        <p className="text-sm font-medium text-muted-foreground/80 tracking-tight">
+          Interactive city model • Live environment mapping
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Pie Chart */}
-        <motion.div variants={item} className="glass-card p-6 rounded-xl">
-          <h2 className="font-display text-sm font-semibold text-foreground mb-4">Emission Sources</h2>
-          <div className="h-64">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Pie Chart Card */}
+        <motion.div variants={item} className="lg:col-span-7 glass-card p-6 rounded-2xl border border-white/5 bg-[#0a0f0d]/60 backdrop-blur-xl">
+          <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-muted-foreground/60 mb-6">Emission Sources</h2>
+          <div className="h-64 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={EMISSION_SOURCES} cx="50%" cy="50%" innerRadius={60} outerRadius={90} dataKey="value" stroke="none">
+                <Pie 
+                  data={EMISSION_SOURCES} 
+                  cx="50%" cy="50%" 
+                  innerRadius={75} 
+                  outerRadius={95} 
+                  paddingAngle={5}
+                  dataKey="value" 
+                  stroke="none"
+                  style={{ cursor: 'pointer', outline: 'none' }}
+                >
                   {EMISSION_SOURCES.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip
+                  cursor={false}
                   contentStyle={{
-                    background: "hsl(160, 20%, 7%)",
-                    border: "1px solid hsl(160, 15%, 20%)",
-                    borderRadius: "8px",
-                    fontSize: 12,
+                    background: "#161b19", // Solid high-contrast background
+                    border: "1px solid rgba(0, 255, 136, 0.2)",
+                    borderRadius: "12px",
+                    padding: "8px 12px",
+                    boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
                   }}
+                  itemStyle={{
+                    color: "#ffffff",
+                    fontSize: "12px",
+                    fontWeight: "900",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em"
+                  }}
+                  labelStyle={{ display: "none" }} // Hides the default label for a cleaner look
                 />
               </PieChart>
             </ResponsiveContainer>
+            {/* Center Label */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-4xl font-black tracking-tighter text-white drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{avgCO2}</span>
+              <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">PPM</span>
+            </div>
           </div>
-          <div className="flex justify-center gap-6 mt-2">
+          <div className="flex justify-center gap-8 mt-4">
             {EMISSION_SOURCES.map((s) => (
-              <div key={s.name} className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="w-3 h-3 rounded-sm" style={{ background: s.color }} />
-                {s.name} ({s.value}%)
+              <div key={s.name} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground/80">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: s.color, boxShadow: `0 0 8px ${s.color}66` }} />
+                {s.name}
               </div>
             ))}
           </div>
         </motion.div>
 
-        {/* Source Breakdown */}
-        <motion.div variants={item} className="glass-card p-6 rounded-xl space-y-4">
-          <h2 className="font-display text-sm font-semibold text-foreground">Contribution Breakdown</h2>
-          {EMISSION_SOURCES.map((src) => (
-            <div key={src.name} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <src.icon className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{src.name}</span>
+        {/* Breakdown Card */}
+        <motion.div variants={item} className="lg:col-span-5 glass-card p-6 rounded-2xl border border-white/5 bg-[#0a0f0d]/60">
+          <h2 className="text-[11px] font-black tracking-[0.2em] uppercase text-muted-foreground/60 mb-6">Contribution Breakdown</h2>
+          <div className="space-y-6">
+            {EMISSION_SOURCES.map((src) => (
+              <div key={src.name} className="space-y-2 group">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <src.icon className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-black tracking-tighter uppercase text-foreground/90">{src.name}</span>
+                  </div>
+                  <span className="text-sm font-black tracking-tighter" style={{ color: src.color }}>{src.value}%</span>
                 </div>
-                <span className="text-sm font-mono font-bold" style={{ color: src.color }}>{src.value}%</span>
+                <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${src.value}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className="h-full rounded-full"
+                    style={{ background: src.color, boxShadow: `0 0 10px ${src.color}44` }}
+                  />
+                </div>
               </div>
-              <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${src.value}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="h-full rounded-full"
-                  style={{ background: src.color }}
-                />
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </motion.div>
       </div>
 
       {/* AI Predictions */}
-      <div>
-        <h2 className="font-display text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
-          <Brain className="w-4 h-4 text-accent" /> AI CO₂ Predictions
+      <div className="space-y-4">
+        <h2 className="text-[11px] font-black tracking-[0.3em] uppercase text-[#00ff88]/70 flex items-center gap-2">
+          <Brain className="w-4 h-4" /> AI CO₂ Predictions
         </h2>
         <motion.div variants={container} className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {predictions.map((p) => {
-            const status = p.value < 420 ? "status-green" : p.value <= 480 ? "status-yellow" : "status-red";
+            const statusColor = p.value < 420 ? "text-[#00ff88]" : p.value <= 480 ? "text-amber-400" : "text-rose-500";
             return (
-              <motion.div key={p.label} variants={item} className="glass-card-hover p-5 rounded-xl text-center">
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">{p.label}</p>
-                <p className={`text-3xl font-bold font-mono ${status}`}>{p.value}</p>
-                <p className="text-xs text-muted-foreground mt-1">ppm CO₂</p>
-                <div className="flex items-center justify-center gap-1 mt-2">
-                  <TrendingUp className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-[10px] text-muted-foreground">+{p.hours}h forecast</span>
+              <motion.div 
+                key={p.label} 
+                variants={item} 
+                whileHover={{ y: -4, backgroundColor: "rgba(255,255,255,0.02)" }}
+                className="glass-card p-5 rounded-2xl border border-white/5 bg-[#0a0f0d]/40 text-center transition-colors"
+              >
+                <p className="text-[10px] font-black uppercase tracking-[0.15em] text-muted-foreground/60 mb-2">{p.label}</p>
+                <p className={`text-4xl font-black tracking-tighter ${statusColor} drop-shadow-[0_0_8px_rgba(0,255,136,0.2)]`}>
+                  {p.value}
+                </p>
+                <p className="text-[10px] font-bold text-muted-foreground mt-1 uppercase tracking-widest">ppm CO₂</p>
+                <div className="flex items-center justify-center gap-1 mt-4 pt-4 border-t border-white/5">
+                  <TrendingUp className="w-3 h-3 text-muted-foreground/40" />
+                  <span className="text-[10px] font-black tracking-tighter text-muted-foreground/40 uppercase">+{p.hours}h Forecast</span>
                 </div>
               </motion.div>
             );

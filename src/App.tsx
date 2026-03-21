@@ -8,6 +8,7 @@ import Dashboard from "@/pages/Dashboard";
 import SensorNetwork from "@/pages/SensorNetwork";
 import DigitalTwin from "@/pages/DigitalTwin";
 import EmissionAnalysis from "@/pages/EmissionAnalysis";
+import EmissionHotspots from "@/pages/EmissionHotspots"; // Added this import
 import Interventions from "@/pages/Interventions";
 import NotFound from "@/pages/NotFound";
 
@@ -16,17 +17,34 @@ const queryClient = new QueryClient();
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
+      {/* Global Notifications */}
       <Toaster />
-      <Sonner />
+      <Sonner position="top-right" closeButton />
+      
       <BrowserRouter>
         <Routes>
+          {/* Main Application Shell */}
           <Route element={<Layout />}>
+            {/* 1. Mission Control (Home) */}
             <Route path="/" element={<Dashboard />} />
-            <Route path="/sensors" element={<SensorNetwork />} />
-            <Route path="/digital-twin" element={<DigitalTwin />} />
-            <Route path="/emissions" element={<EmissionAnalysis />} />
+            
+            {/* 2. IoT Mesh Management (Path: /network) */}
+            <Route path="/network" element={<SensorNetwork />} /> 
+            
+            {/* 3. Urban Digital Twin (Path: /twin) */}
+            <Route path="/twin" element={<DigitalTwin />} />
+            
+            {/* 4. Analytics & AQI Trends (Path: /analysis) */}
+            <Route path="/analysis" element={<EmissionAnalysis />} />
+
+            {/* 5. Spatial Heatmap (Path: /hotspots) */}
+            <Route path="/hotspots" element={<EmissionHotspots />} /> 
+            
+            {/* 6. Actionable Insights & Interventions */}
             <Route path="/interventions" element={<Interventions />} />
           </Route>
+          
+          {/* Global Fallback for 404s */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
